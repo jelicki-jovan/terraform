@@ -181,3 +181,43 @@ module "ebs_csi_irsa" {
     }
   }
 }
+
+module "aws_lb_controller_irsa" {
+  source  = "terraform-aws-modules/iam/aws//modules/iam-role-for-service-accounts"
+  version = "~> 6.8"
+
+  name            = "hw-eks-aws-lb-controller-prod"
+  use_name_prefix = false
+  policy_name     = "hw-eks-aws-lb-controller-prod"
+
+  attach_load_balancer_controller_policy = true
+
+  oidc_providers = {
+    eks_prod = {
+      provider_arn               = module.eks.oidc_provider_arn
+      namespace_service_accounts = ["kube-system:aws-load-balancer-controller"]
+    }
+  }
+}
+
+module "external_secrets_irsa" {
+  source  = "terraform-aws-modules/iam/aws//modules/iam-role-for-service-accounts"
+  version = "~> 6.8"
+
+  name            = "hw-eks-external-secrets-prod"
+  use_name_prefix = false
+  policy_name     = "hw-eks-external-secrets-prod"
+
+  attach_external_secrets_policy = true
+  external_secrets_secrets_manager_arns = [
+    aws_secretsmanager_secret.backend.arn,
+    module.rds.db_instance_master_user_secret_arn,
+  ]
+
+  oidc_providers = {
+    eks_prod = {
+      provider_arn               = module.eks.oidc_provider_arn
+      namespace_service_accounts = ["external-secrets:external-secrets"]
+    }
+  }
+}
