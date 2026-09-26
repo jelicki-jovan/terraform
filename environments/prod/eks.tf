@@ -102,10 +102,13 @@ module "eks" {
 
   eks_managed_node_groups = {
     system = {
-      name           = "system"
-      ami_type       = "AL2023_x86_64_STANDARD"
-      capacity_type  = "ON_DEMAND"
-      instance_types = ["t3.medium"]
+      name     = "system"
+      ami_type = "AL2023_x86_64_STANDARD"
+      # Pinned AMI release (same as Karpenter's EC2NodeClass al2023@v20260923); bump deliberately to roll nodes
+      use_latest_ami_release_version = false
+      ami_release_version            = "1.36.4-20260923"
+      capacity_type                  = "ON_DEMAND"
+      instance_types                 = ["t3.medium"]
 
       min_size     = 3
       max_size     = 4

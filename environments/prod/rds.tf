@@ -35,8 +35,9 @@ module "rds" {
   parameter_group_use_name_prefix = false
   parameters = [
     {
-      name  = "rds.force_ssl"
-      value = "1"
+      name         = "rds.force_ssl"
+      value        = "1"
+      apply_method = "pending-reboot"
     },
     {
       name  = "log_min_duration_statement"
