@@ -43,6 +43,7 @@ module "vpc" {
   private_subnet_tags = {
     "Tier"                            = "Private"
     "kubernetes.io/role/internal-elb" = 1
+    "karpenter.sh/discovery"          = "hw-eks-prod"
   }
 
   database_subnet_tags = {
