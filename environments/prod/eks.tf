@@ -98,6 +98,17 @@ module "eks" {
         }
       })
     }
+    metrics-server = {
+      configuration_values = jsonencode({
+        nodeSelector = {
+          "workload-type" = "system"
+        }
+        podDisruptionBudget = {
+          enabled        = true
+          maxUnavailable = 1
+        }
+      })
+    }
   }
 
   eks_managed_node_groups = {
