@@ -26,8 +26,9 @@ data "aws_iam_policy_document" "github_actions_ecr_trust" {
     condition {
       test     = "StringEquals"
       variable = "token.actions.githubusercontent.com:sub"
+      # repo can't be re-created by someone else to match this trust policy (repo-jacking)
       values = [
-        "repo:jelicki-jovan/Incode-conduit-realworld-example-app:ref:refs/heads/main"
+        "repo:jelicki-jovan@333439828/Incode-conduit-realworld-example-app@1385920809:ref:refs/heads/main"
       ]
     }
   }
