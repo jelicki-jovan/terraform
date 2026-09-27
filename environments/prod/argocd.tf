@@ -23,6 +23,14 @@ resource "helm_release" "argocd" {
       notifications = {
         enabled = false
       }
+      configs = {
+        cm = {
+          # Poll Git every 30 s (default 120 s + up to 60 s jitter): deploys land in <= ~30 s
+          # without a webhook (ArgoCD isn't reachable from GitHub: no domain)
+          "timeout.reconciliation"        = "30s"
+          "timeout.reconciliation.jitter" = "0s"
+        }
+      }
     })
   ]
 
