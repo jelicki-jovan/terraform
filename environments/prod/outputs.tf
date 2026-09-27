@@ -45,9 +45,9 @@ output "aws_lb_controller_role_arn" {
   value       = module.aws_lb_controller_irsa.arn
 }
 
-output "external_secrets_role_arn" {
-  description = "IRSA role for the External Secrets service account"
-  value       = module.external_secrets_irsa.arn
+output "eso_namespace_role_arns" {
+  description = "Per-namespace IRSA roles for External Secrets (annotation on <namespace>/external-secrets)"
+  value       = { for ns, role in module.eso_namespace_irsa : ns => role.arn }
 }
 
 output "nat_public_ips" {

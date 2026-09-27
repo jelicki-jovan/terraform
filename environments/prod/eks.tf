@@ -53,6 +53,8 @@ module "eks" {
       before_compute           = true
       service_account_role_arn = module.vpc_cni_irsa.arn
       configuration_values = jsonencode({
+        # Enforce Kubernetes NetworkPolicies (network policy agent in aws-node); off by default
+        enableNetworkPolicy = "true"
         env = {
           ENABLE_PREFIX_DELEGATION = "true"
           WARM_PREFIX_TARGET       = "1"
@@ -214,24 +216,32 @@ module "aws_lb_controller_irsa" {
   }
 }
 
-module "external_secrets_irsa" {
+### External Secrets: one IAM role per namespace (the ESO controller itself has no AWS access).
+### A namespace's SecretStore logs in as its own "external-secrets" service account and can read
+### only secrets named "<namespace>/*" (+ that namespace's RDS secret).
+module "eso_namespace_irsa" {
   source  = "terraform-aws-modules/iam/aws//modules/iam-role-for-service-accounts"
   version = "~> 6.8"
 
-  name            = "hw-eks-external-secrets-prod"
+  ### namespace iteration
+  for_each = {
+    prod = [module.rds.db_instance_master_user_secret_arn]
+  }
+
+  name            = "hw-eks-eso-ns-${each.key}"
   use_name_prefix = false
-  policy_name     = "hw-eks-external-secrets-prod"
+  policy_name     = "hw-eks-eso-ns-${each.key}"
 
   attach_external_secrets_policy = true
-  external_secrets_secrets_manager_arns = [
-    aws_secretsmanager_secret.backend.arn,
-    module.rds.db_instance_master_user_secret_arn,
-  ]
+  external_secrets_secrets_manager_arns = concat(
+    ["arn:aws:secretsmanager:us-east-1:003636669641:secret:${each.key}/*"],
+    each.value,
+  )
 
   oidc_providers = {
     eks_prod = {
       provider_arn               = module.eks.oidc_provider_arn
-      namespace_service_accounts = ["external-secrets:external-secrets"]
+      namespace_service_accounts = ["${each.key}:external-secrets"]
     }
   }
 }
