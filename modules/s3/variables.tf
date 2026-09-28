@@ -22,6 +22,13 @@ variable "public_read" {
   default = false
 }
 
+variable "force_destroy" {
+  description = "Delete all objects (incl. versions) when the bucket is destroyed"
+  type        = bool
+
+  default = false
+}
+
 variable "prevent_deletion" {
   description = "Deny s3:DeleteBucket for everyone via bucket policy"
   type        = bool

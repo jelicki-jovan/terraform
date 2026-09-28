@@ -20,11 +20,10 @@ module "rds" {
   username = "home_work_admin"
   port     = 5432
 
-  # TODO: stop using the master user in the app. Enable IAM database authentication
-  # (iam_database_authentication_enabled), create a dedicated least-privilege app user with
-  # `GRANT rds_iam` (Kubernetes Job running SQL inside the VPC), give the backend's IRSA role
-  # rds-db:connect on that user, and generate a 15-min auth token per connection in the app.
-  manage_master_user_password = true
+  # Master user (RDS-managed password in Secrets Manager) only for migrations; the app logs in as a
+  # least-privilege user with IAM auth: 15-min token from its IRSA role instead of a password
+  manage_master_user_password         = true
+  iam_database_authentication_enabled = true
 
   multi_az               = true
   create_db_subnet_group = false
@@ -51,6 +50,8 @@ module "rds" {
   backup_window           = "03:00-04:00"
   maintenance_window      = "Mon:04:30-Mon:05:30"
   copy_tags_to_snapshot   = true
+  # Keep automated backups (PITR) until they expire even if the instance is deleted
+  delete_automated_backups = false
 
   deletion_protection              = true
   skip_final_snapshot              = false
@@ -65,6 +66,33 @@ module "rds" {
 
   auto_minor_version_upgrade = true
   apply_immediately          = false
+}
+
+# Backend (IRSA) may log in to this instance only as app_user (created by the app-user migration).
+# The resource is the instance's immutable resource ID (db-XXXX), not its name.
+data "aws_iam_policy_document" "backend_rds_connect" {
+  statement {
+    actions   = ["rds-db:connect"]
+    resources = ["arn:aws:rds-db:us-east-1:003636669641:dbuser:${module.rds.db_instance_resource_id}/app_user"]
+  }
+}
+
+module "backend_irsa" {
+  source  = "terraform-aws-modules/iam/aws//modules/iam-role-for-service-accounts"
+  version = "~> 6.8"
+
+  name            = "hw-eks-backend-prod"
+  use_name_prefix = false
+  policy_name     = "hw-eks-backend-prod"
+
+  source_policy_documents = [data.aws_iam_policy_document.backend_rds_connect.json]
+
+  oidc_providers = {
+    eks_prod = {
+      provider_arn               = module.eks.oidc_provider_arn
+      namespace_service_accounts = ["prod:hw-backend-prod"]
+    }
+  }
 }
 
 resource "aws_security_group" "rds" {

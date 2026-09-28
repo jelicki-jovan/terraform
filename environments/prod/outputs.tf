@@ -36,6 +36,11 @@ output "rds_master_user_secret_arn" {
   value       = module.rds.db_instance_master_user_secret_arn
 }
 
+output "backend_role_arn" {
+  description = "IRSA role for the backend service account (prod/hw-backend-prod): rds-db:connect as app_user"
+  value       = module.backend_irsa.arn
+}
+
 output "backend_secret_arn" {
   value = aws_secretsmanager_secret.backend.arn
 }
@@ -53,4 +58,32 @@ output "eso_namespace_role_arns" {
 output "nat_public_ips" {
   description = "Egress IPs of the private subnets (NAT gateways)"
   value       = module.vpc.nat_public_ips
+}
+
+output "loki_bucket_name" {
+  value = module.loki_bucket.bucket_id
+}
+
+output "loki_role_arn" {
+  description = "IRSA role for the Loki service account (monitoring/loki)"
+  value       = module.loki_irsa.arn
+}
+
+output "alerts_topic_arn" {
+  description = "SNS topic for all alerts (email subscription added by hand)"
+  value       = aws_sns_topic.alerts.arn
+}
+
+output "watchdog_topic_arn" {
+  value = aws_sns_topic.watchdog.arn
+}
+
+output "alertmanager_role_arn" {
+  description = "IRSA role for the Alertmanager service account (monitoring/alertmanager)"
+  value       = module.alertmanager_irsa.arn
+}
+
+output "grafana_role_arn" {
+  description = "IRSA role for the Grafana service account (monitoring/grafana)"
+  value       = module.grafana_irsa.arn
 }
