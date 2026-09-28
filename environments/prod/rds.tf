@@ -68,33 +68,6 @@ module "rds" {
   apply_immediately          = false
 }
 
-# Backend (IRSA) may log in to this instance only as app_user (created by the app-user migration).
-# The resource is the instance's immutable resource ID (db-XXXX), not its name.
-data "aws_iam_policy_document" "backend_rds_connect" {
-  statement {
-    actions   = ["rds-db:connect"]
-    resources = ["arn:aws:rds-db:us-east-1:003636669641:dbuser:${module.rds.db_instance_resource_id}/app_user"]
-  }
-}
-
-module "backend_irsa" {
-  source  = "terraform-aws-modules/iam/aws//modules/iam-role-for-service-accounts"
-  version = "~> 6.8"
-
-  name            = "hw-eks-backend-prod"
-  use_name_prefix = false
-  policy_name     = "hw-eks-backend-prod"
-
-  source_policy_documents = [data.aws_iam_policy_document.backend_rds_connect.json]
-
-  oidc_providers = {
-    eks_prod = {
-      provider_arn               = module.eks.oidc_provider_arn
-      namespace_service_accounts = ["prod:hw-backend-prod"]
-    }
-  }
-}
-
 resource "aws_security_group" "rds" {
   name        = "hw-rds-prod"
   description = "PostgreSQL, access only from EKS nodes"
@@ -112,4 +85,53 @@ resource "aws_vpc_security_group_ingress_rule" "rds_from_eks_nodes" {
   from_port                    = 5432
   to_port                      = 5432
   description                  = "PostgreSQL from EKS nodes"
+}
+
+### Alarms → SNS hw-alerts-prod (monitoring.tf); also send OK on recovery
+
+resource "aws_cloudwatch_metric_alarm" "rds_cpu" {
+  alarm_name          = "hw-rds-cpu-prod"
+  alarm_description   = "RDS CPU > 80% for 10 min"
+  namespace           = "AWS/RDS"
+  metric_name         = "CPUUtilization"
+  dimensions          = { DBInstanceIdentifier = module.rds.db_instance_identifier }
+  statistic           = "Average"
+  period              = 300
+  evaluation_periods  = 2
+  comparison_operator = "GreaterThanThreshold"
+  threshold           = 80
+  alarm_actions       = [aws_sns_topic.alerts.arn]
+  ok_actions          = [aws_sns_topic.alerts.arn]
+}
+
+# Storage autoscaling goes up to 100 GB, this catches it before/when that runs out
+resource "aws_cloudwatch_metric_alarm" "rds_free_storage" {
+  alarm_name          = "hw-rds-free-storage-prod"
+  alarm_description   = "RDS free storage < 2 GB"
+  namespace           = "AWS/RDS"
+  metric_name         = "FreeStorageSpace"
+  dimensions          = { DBInstanceIdentifier = module.rds.db_instance_identifier }
+  statistic           = "Minimum"
+  period              = 300
+  evaluation_periods  = 1
+  comparison_operator = "LessThanThreshold"
+  threshold           = 2 * 1024 * 1024 * 1024
+  alarm_actions       = [aws_sns_topic.alerts.arn]
+  ok_actions          = [aws_sns_topic.alerts.arn]
+}
+
+# db.t4g.micro has 1 GB; ~170 MB freeable at idle (2026-09-28)
+resource "aws_cloudwatch_metric_alarm" "rds_freeable_memory" {
+  alarm_name          = "hw-rds-freeable-memory-prod"
+  alarm_description   = "RDS freeable memory < 100 MB for 10 min"
+  namespace           = "AWS/RDS"
+  metric_name         = "FreeableMemory"
+  dimensions          = { DBInstanceIdentifier = module.rds.db_instance_identifier }
+  statistic           = "Average"
+  period              = 300
+  evaluation_periods  = 2
+  comparison_operator = "LessThanThreshold"
+  threshold           = 100 * 1024 * 1024
+  alarm_actions       = [aws_sns_topic.alerts.arn]
+  ok_actions          = [aws_sns_topic.alerts.arn]
 }

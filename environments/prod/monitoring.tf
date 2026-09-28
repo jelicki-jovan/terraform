@@ -123,3 +123,65 @@ module "grafana_irsa" {
     }
   }
 }
+
+### Alerting: everything ends in one SNS topic → email.
+###   CloudWatch alarms (next to their component: rds.tf, frontend.tf): work even when the cluster is down
+###   Alertmanager (in-cluster rules): publishes to SNS via IRSA
+###   Dead man's switch: Alertmanager sends the always-firing Watchdog to hw-watchdog-prod; a CloudWatch
+###   alarm fires when nothing arrives there (monitoring itself is down)
+###
+### Email subscription is NOT managed here (it would put the address in the public repo, and Terraform
+### can't confirm email subscriptions). Subscribe once by hand, then click the link in the email:
+###   aws sns subscribe --region us-east-1 --protocol email --notification-endpoint <email> \
+###     --topic-arn $(terraform output -raw alerts_topic_arn)
+resource "aws_sns_topic" "alerts" {
+  name = "hw-alerts-prod"
+}
+
+# Heartbeat only, no subscribers
+resource "aws_sns_topic" "watchdog" {
+  name = "hw-watchdog-prod"
+}
+
+data "aws_iam_policy_document" "alertmanager" {
+  statement {
+    actions   = ["sns:Publish"]
+    resources = [aws_sns_topic.alerts.arn, aws_sns_topic.watchdog.arn]
+  }
+}
+
+module "alertmanager_irsa" {
+  source  = "terraform-aws-modules/iam/aws//modules/iam-role-for-service-accounts"
+  version = "~> 6.8"
+
+  name            = "hw-eks-alertmanager-prod"
+  use_name_prefix = false
+  policy_name     = "hw-eks-alertmanager-prod"
+
+  source_policy_documents = [data.aws_iam_policy_document.alertmanager.json]
+
+  oidc_providers = {
+    eks_prod = {
+      provider_arn               = module.eks.oidc_provider_arn
+      namespace_service_accounts = ["monitoring:alertmanager"]
+    }
+  }
+}
+
+# Alertmanager re-sends Watchdog every 5 min; no message for 15 min → Prometheus, Alertmanager or the
+# cluster is down (missing data counts as breaching)
+resource "aws_cloudwatch_metric_alarm" "watchdog" {
+  alarm_name          = "hw-monitoring-heartbeat-prod"
+  alarm_description   = "No Watchdog heartbeat from Alertmanager for 15 min: in-cluster monitoring/alerting is down"
+  namespace           = "AWS/SNS"
+  metric_name         = "NumberOfMessagesPublished"
+  dimensions          = { TopicName = aws_sns_topic.watchdog.name }
+  statistic           = "Sum"
+  period              = 300
+  evaluation_periods  = 3
+  comparison_operator = "LessThanThreshold"
+  threshold           = 1
+  treat_missing_data  = "breaching"
+  alarm_actions       = [aws_sns_topic.alerts.arn]
+  ok_actions          = [aws_sns_topic.alerts.arn]
+}
