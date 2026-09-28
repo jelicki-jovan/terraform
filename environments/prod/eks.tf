@@ -94,6 +94,10 @@ module "eks" {
           nodeSelector = {
             "workload-type" = "system"
           }
+          # Every volume created by the driver gets this tag: the DLM policy snapshots them daily
+          extraVolumeTags = {
+            backup = "daily"
+          }
         }
         node = {
           tolerateAllTaints = true
@@ -123,9 +127,10 @@ module "eks" {
       capacity_type                  = "ON_DEMAND"
       instance_types                 = ["t3.medium"]
 
-      min_size     = 3
-      max_size     = 4
-      desired_size = 3
+      # 4 nodes: headroom for monitoring (Prometheus, Loki, Grafana) next to the platform add-ons
+      min_size     = 4
+      max_size     = 5
+      desired_size = 4
 
       cloudinit_pre_nodeadm = [{
         content_type = "application/node.eks.aws"
