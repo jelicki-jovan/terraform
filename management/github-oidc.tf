@@ -59,7 +59,10 @@ data "aws_iam_policy_document" "github_actions_ecr_push" {
       "ecr:PutImage",
       "ecr:DescribeImages",
     ]
-    resources = [for repo in module.ecr_prod : repo.repository_arn]
+    resources = concat(
+      [for repo in module.ecr_prod : repo.repository_arn],
+      [for repo in module.ecr_dev : repo.repository_arn],
+    )
   }
 }
 

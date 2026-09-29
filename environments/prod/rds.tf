@@ -9,7 +9,10 @@ module "rds" {
   family                   = "postgres17"
   major_engine_version     = "17"
   engine_lifecycle_support = "open-source-rds-extended-support-disabled"
-  instance_class           = "db.t4g.micro"
+  # Was db.t4g.micro (1 GB): the freeable-memory alarm showed it short on memory on day one.
+  # db.t3.small (2 GB, x86) because db.t4g.small (Graviton) hit InsufficientDBInstanceCapacity for
+  # Multi-AZ twice (2026-09-29); same memory, different capacity pool
+  instance_class = "db.t3.small"
 
   allocated_storage     = 20
   max_allocated_storage = 100
@@ -120,7 +123,7 @@ resource "aws_cloudwatch_metric_alarm" "rds_free_storage" {
   ok_actions          = [aws_sns_topic.alerts.arn]
 }
 
-# db.t4g.micro has 1 GB; ~170 MB freeable at idle (2026-09-28)
+# db.t3.small has 2 GB (on db.t4g.micro, 1 GB, this alarm fired on day one: ~75 MB free)
 resource "aws_cloudwatch_metric_alarm" "rds_freeable_memory" {
   alarm_name          = "hw-rds-freeable-memory-prod"
   alarm_description   = "RDS freeable memory < 100 MB for 10 min"

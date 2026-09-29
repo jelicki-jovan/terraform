@@ -1,0 +1,36 @@
+#  Local .terraform directories
+**/.terraform/*
+
+# .tfstate files
+*.tfstate
+*.tfstate.*
+
+# .tfvars files
+*.tfvars
+
+# Plans and crash logs
+plan.*
+*.plan
+*.tfplan
+crash.log
+crash.*.log
+
+# Local overrides
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+
+# IDE
+.idea/
+**/.terraform-version
+.DS_Store
+terraform.iml
+
+# Claude
+.claude/settings.local.json
+
+# Terraform backend conf
+backend.conf
+*.secret
+**/.env

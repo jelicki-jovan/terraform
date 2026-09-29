@@ -92,7 +92,7 @@ pulls the change and rolls it out (database migrations first, as a Job, then a z
 | `environments/prod/` | The prod environment, one file per component: VPC, EKS, RDS, backend, frontend, monitoring | [README](environments/prod/README.md) |
 | `environments/prod/platform/` | What runs on the cluster and bootstraps it: Karpenter, Argo CD | [README](environments/prod/platform/README.md) |
 | `modules/` | Own modules (S3, ECR) with secure defaults | [README](modules/README.md) |
-| `docs/` | Decisions, known gaps, runbooks | [known gaps](docs/known-gaps.md), [runbooks](docs/runbooks/) |
+| `docs/` | Known gaps, runbooks | [known gaps](docs/known-gaps.md), [runbooks](docs/runbooks/) |
 
 ## Setup from zero
 
@@ -134,8 +134,6 @@ role ARNs referenced in `k8s-envs` and in the app repo's workflow, and the RDS e
   and alerts that must work even if the cluster is down.
 - **Built within the account's guardrails**: one region, small instance types only, no AWS Backup →
   backups with RDS automated backups + Data Lifecycle Manager instead.
-
-More in [docs/decisions.md](docs/decisions.md).
 
 ## Known gaps
 

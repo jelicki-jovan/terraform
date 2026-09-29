@@ -53,7 +53,7 @@ and so on.
 
 ## Database (`rds.tf`)
 
-- PostgreSQL 17 on `db.t4g.micro`, **Multi-AZ**, gp3 20 GB with autoscaling to 100 GB, encrypted.
+- PostgreSQL 17 on `db.t3.small`, **Multi-AZ**, gp3 20 GB with autoscaling to 100 GB, encrypted.
 - **TLS enforced** (`rds.force_ssl`), reachable only from the EKS nodes' security group, slow queries (> 1 s)
   logged to CloudWatch.
 - **Credentials**: the master password is generated and rotated by RDS in Secrets Manager (never in

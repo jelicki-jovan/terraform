@@ -1,0 +1,70 @@
+module "karpenter" {
+  source  = "terraform-aws-modules/eks/aws//modules/karpenter"
+  version = "~> 21.26"
+
+  cluster_name = var.cluster_name
+
+  iam_role_name              = "hw-eks-karpenter-controller-dev"
+  iam_role_use_name_prefix   = false
+  iam_policy_name            = "hw-eks-karpenter-controller-dev"
+  iam_policy_use_name_prefix = false
+
+  queue_name       = "hw-eks-karpenter-dev"
+  rule_name_prefix = "hw-karpenter-dev-"
+
+  node_iam_role_name              = "hw-eks-karpenter-node-dev"
+  node_iam_role_use_name_prefix   = false
+  node_iam_role_attach_cni_policy = false
+  node_iam_role_additional_policies = {
+    AmazonSSMManagedInstanceCore = "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore"
+  }
+}
+
+resource "helm_release" "karpenter_crd" {
+  name       = "karpenter-crd"
+  namespace  = "kube-system"
+  repository = "oci://public.ecr.aws/karpenter"
+  chart      = "karpenter-crd"
+  version    = "1.14.1"
+}
+
+resource "helm_release" "karpenter" {
+  name       = "karpenter"
+  namespace  = "kube-system"
+  repository = "oci://public.ecr.aws/karpenter"
+  chart      = "karpenter"
+  version    = "1.14.1"
+
+  skip_crds = true
+
+  values = [
+    yamlencode({
+      replicas = 1
+      nodeSelector = {
+        "kubernetes.io/os" = "linux"
+        "workload-type"    = "system"
+      }
+      serviceAccount = {
+        name = module.karpenter.service_account
+      }
+      settings = {
+        clusterName       = var.cluster_name
+        clusterEndpoint   = var.cluster_endpoint
+        interruptionQueue = module.karpenter.queue_name
+      }
+      controller = {
+        resources = {
+          requests = {
+            cpu    = "250m"
+            memory = "512Mi"
+          }
+          limits = {
+            memory = "512Mi"
+          }
+        }
+      }
+    })
+  ]
+
+  depends_on = [helm_release.karpenter_crd]
+}
