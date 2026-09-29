@@ -24,6 +24,8 @@ flowchart LR
   internet((Internet))
   sm[Secrets Manager]
   s3[(S3<br/>Loki logs)]
+  eb[EventBridge<br/>spot interruption,<br/>rebalance, health events]
+  sqs[(SQS queue)]
 
   subgraph vpc[VPC prod-vpc, 3 AZs]
     subgraph public[public subnets]
@@ -45,6 +47,7 @@ flowchart LR
   eks -->|egress| nat --> internet
   sm -. JWT key via<br/>External Secrets .-> be
   sys -. logs .-> s3
+  eb --> sqs -. Karpenter polls .-> sys
 ```
 
 - A request hits the **ALB** (created by the AWS Load Balancer Controller from the frontend's Ingress), which
@@ -53,7 +56,9 @@ flowchart LR
 - The backend talks to **RDS** over verified TLS, as a least-privilege `app_user`, with a 15-minute IAM token
   from its pod's IAM role instead of a password.
 - **Nodes**: a small managed node group (tainted, system add-ons only) keeps the cluster itself running;
-  **Karpenter** launches app nodes on demand, mixing spot and on-demand, spread over 3 AZs.
+  **Karpenter** launches app nodes on demand, mixing spot and on-demand, spread over 3 AZs. AWS's 2-minute
+  spot interruption warnings (and rebalance / maintenance events) reach Karpenter through EventBridge and an
+  SQS queue, so it starts a replacement node and drains the old one before AWS takes it back.
 - **Network**: public subnets only for the ALB and NAT gateways; nodes in private subnets; RDS in isolated
   database subnets reachable only from the EKS nodes. One NAT gateway per AZ (an AZ outage doesn't cut egress).
 
