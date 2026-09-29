@@ -66,6 +66,7 @@ back in the restored copy (not in prod). Record times → real RTO.
      --db-parameter-group-name hw-rds-prod \
      --no-publicly-accessible \
      --manage-master-user-password \
+     --enable-iam-database-authentication \
      --tags Key=purpose,Value=restore-test Key=Project,Value=home-work
    ```
    - `--manage-master-user-password`: RDS creates a **new** managed secret for the copy (the prod secret
@@ -119,19 +120,27 @@ after the switch.
 2. **Pick the restore point**: last good moment before the incident (from logs in Loki/CloudWatch, the
    time of the bad deploy/migration, …). Everything written after it is lost (tell users).
 3. **Restore** into a new instance with **production settings** (Multi-AZ, same class/params/SG/subnet
-   group), same command as the test but e.g. `--target-db-instance-identifier hw-rds-prod-restored --multi-az`.
+   group, IAM authentication enabled), same command as the test but e.g.
+   `--target-db-instance-identifier hw-rds-prod-restored --multi-az`. The app's database user
+   (`app_user`, with its `rds_iam` grant) is part of the restored data.
 4. **Verify the data** on the new instance (psql pod as in the test) before switching.
 5. **Switch the app to it**, two options:
    - **Rename** (endpoint hostname follows the identifier, so the app config stays the same):
      `hw-rds-prod` → `hw-rds-prod-old`, then `hw-rds-prod-restored` → `hw-rds-prod`
      (`aws rds modify-db-instance --new-db-instance-identifier … --apply-immediately`).
    - **Or** point the backend at the new endpoint (ConfigMap DB host in `k8s-envs`).
-   - Either way the **DB credentials change** (new RDS-managed secret) → update what the ExternalSecret
-     reads, and let ESO refresh the Kubernetes Secret.
+   - Either way the **master credentials change** (new RDS-managed secret) → update the secret name the
+     migration Job's ExternalSecret reads, and let ESO refresh the Kubernetes Secret.
+   - Either way the **backend can't log in yet**: its IAM policy allows `rds-db:connect` only on the old
+     instance's **resource ID** (`dbuser:db-XXXX/app_user`). The restored instance has a new resource ID,
+     also after a rename (resource IDs never change). Fixed in the next step.
 6. **Bring Terraform back in line**: the state still points at the old instance → `terraform state rm` the
-   old instance + `terraform import` the new one (then `plan` must show no destroy/replace); keep
-   `deletion_protection` on.
-7. **Start the backend** (re-enable ArgoCD auto-sync), check health, logs, a login + article read.
+   old instance + `terraform import` the new one. `terraform plan` must show **no destroy/replace** of the
+   database, and an in-place update of the backend's IAM policy to the new resource ID (it's built from
+   the instance's resource ID) → `terraform apply`. Keep `deletion_protection` on.
+7. **Start the backend** only after step 6 (re-enable Argo CD auto-sync), check health, logs, a login +
+   article read. A `PAM authentication failed for user "app_user"` in the backend logs means the IAM
+   policy still points at the old instance.
 8. **End maintenance**, tell users; keep the old instance for a few days (forensics), then delete it
    (disable deletion protection first).
 9. **Post-mortem**: cause, data loss window, how long it took, what to improve.
