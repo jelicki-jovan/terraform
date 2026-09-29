@@ -65,10 +65,6 @@ evaluate the SCPs' conditions).
   detects drift.
 - **Only a prod environment.** A dev environment would be a sibling folder; the shared parts would then
   move into modules.
-- **ECR repositories per environment, but only one environment.** *With dev:* build once, push to the dev
-  repository, and promote by copying the exact image (by digest) into the prod repository after
-  approval, without rebuilding. That keeps "the same bytes everywhere" and a prod registry that contains
-  only promoted images.
 - **Argo CD polls Git every 30 seconds** (no webhook: Argo CD isn't reachable from GitHub without a domain).
   *Production:* GitHub webhook for instant syncs.
 
