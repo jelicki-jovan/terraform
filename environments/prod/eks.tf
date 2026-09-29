@@ -313,3 +313,14 @@ module "eso_namespace_irsa" {
     }
   }
 }
+
+### Platform on the cluster: Karpenter + Argo CD bootstrap (./platform). Installed after the cluster and
+### its system node group exist; the cluster never depends on it.
+module "platform" {
+  source = "./platform"
+
+  cluster_name     = module.eks.cluster_name
+  cluster_endpoint = module.eks.cluster_endpoint
+
+  depends_on = [module.eks]
+}

@@ -2,7 +2,7 @@ module "karpenter" {
   source  = "terraform-aws-modules/eks/aws//modules/karpenter"
   version = "~> 21.26"
 
-  cluster_name = module.eks.cluster_name
+  cluster_name = var.cluster_name
 
   iam_role_name              = "hw-eks-karpenter-controller-prod"
   iam_role_use_name_prefix   = false
@@ -26,8 +26,6 @@ resource "helm_release" "karpenter_crd" {
   repository = "oci://public.ecr.aws/karpenter"
   chart      = "karpenter-crd"
   version    = "1.14.1"
-
-  depends_on = [module.eks]
 }
 
 resource "helm_release" "karpenter" {
@@ -50,8 +48,8 @@ resource "helm_release" "karpenter" {
         name = module.karpenter.service_account
       }
       settings = {
-        clusterName       = module.eks.cluster_name
-        clusterEndpoint   = module.eks.cluster_endpoint
+        clusterName       = var.cluster_name
+        clusterEndpoint   = var.cluster_endpoint
         interruptionQueue = module.karpenter.queue_name
       }
       controller = {
@@ -68,5 +66,5 @@ resource "helm_release" "karpenter" {
     })
   ]
 
-  depends_on = [module.eks, helm_release.karpenter_crd]
+  depends_on = [helm_release.karpenter_crd]
 }

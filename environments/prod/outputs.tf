@@ -24,7 +24,7 @@ output "eks_oidc_provider_arn" {
 
 output "karpenter_node_iam_role_name" {
   description = "Used in the EC2NodeClass (role)"
-  value       = module.karpenter.node_iam_role_name
+  value       = module.platform.karpenter_node_iam_role_name
 }
 
 output "rds_endpoint" {

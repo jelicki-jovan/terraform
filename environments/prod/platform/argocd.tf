@@ -33,8 +33,6 @@ resource "helm_release" "argocd" {
       }
     })
   ]
-
-  depends_on = [module.eks]
 }
 
 ### Root application: syncs the top-level Application manifests in k8s-envs/argocd/prod
