@@ -34,7 +34,7 @@ evaluate the SCPs' conditions).
   fails on the Helm releases). *Production:* SSO roles (platform admin / developer / read-only) mapped to
   access entries; access managed by SSO assignments, not per person in Terraform.
 - **No HTTPS.** No domain, so no ACM certificate: users → ALB is plain HTTP. *Production:* Route 53 + ACM,
-  HTTPS listener with HTTP → HTTPS redirect and HSTS.
+  HTTPS listener with an HTTP → HTTPS redirect.
 - **Traffic inside the VPC isn't encrypted** (ALB → pods, pod → pod). Encrypted today: backend → RDS
   (verified TLS), all AWS/Kubernetes APIs, secrets at rest (KMS). *Production:* a service mesh with
   automatic mTLS (Linkerd/Istio), or end-to-end TLS from the ALB.
@@ -80,7 +80,7 @@ evaluate the SCPs' conditions).
   policy against data exfiltration. A few lines in `vpc.tf`, no downtime.
 - **Replica spread can drift between deploys.** Spread rules are only checked when a pod is scheduled;
   after an unplanned node loss (e.g. a spot reclaim), replicas can stay unbalanced until the next rollout.
-  Rollout-caused imbalance is fixed. *Production:* the Descheduler to rebalance.
+  Rollout-caused imbalance is fixed.
 - **Some add-ons run without memory requests** (Argo CD components, `aws-node`, `kube-proxy`, Pod Identity
   agent): the scheduler can't plan around their real usage. I added a 4th system node for headroom and
   gave every monitoring component explicit requests/limits. *Next step:* requests for the rest.

@@ -53,7 +53,7 @@ Karpenter's controller correctly can't, so the first spot launch failed; the rol
 | Output | Used for |
 |---|---|
 | `ecr_prod_urls` | Image names in `k8s-envs` |
-| `github_actions_ecr_role_arn` | App repo's GitHub Actions configuration |
+| `github_actions_ecr_role_arn` | `AWS_ROLE_ARN` in the app repo's workflow (`app-ci.yml`) |
 
 ## Apply
 

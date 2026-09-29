@@ -97,8 +97,9 @@ Prerequisites: an AWS account (region **us-east-1**: the account's SCPs allow no
 1. **`management/`**: first apply with local state (the state bucket doesn't exist yet), then enable the S3
    backend and `terraform init -migrate-state`. Creates the state bucket, ECR repositories and the GitHub
    OIDC role.
-2. **App repo CI**: set the role ARN (output `github_actions_ecr_role_arn`) and the deploy key for
-   `k8s-envs` in the app repo's GitHub Actions settings.
+2. **App repo CI**: the role ARN (output `github_actions_ecr_role_arn`) goes into the workflow
+   (`app-ci.yml`; it isn't a secret). Create an SSH key pair: the public key as a **deploy key with write
+   access** on `k8s-envs`, the private key as the GitHub Actions secret `K8S_ENVS_DEPLOY_KEY` in the app repo.
 3. **`environments/prod/`**: `terraform init && terraform apply`. Creates the VPC, EKS, RDS, secrets, IAM
    roles and monitoring storage, then installs Karpenter and Argo CD. Argo CD syncs `k8s-envs` and brings up
    everything else (add-ons, monitoring, the apps).
@@ -111,7 +112,7 @@ Access: `aws eks update-kubeconfig --name hw-eks-prod --region us-east-1`; Argo 
 with `kubectl port-forward` (no public UIs). Step-by-step details are in the folder READMEs.
 
 Rebuilding in another account needs a few values changed: the EKS admin (access entry), the account ID and
-role ARNs referenced in `k8s-envs`, and the RDS endpoint/secret name.
+role ARNs referenced in `k8s-envs` and in the app repo's workflow, and the RDS endpoint/secret name.
 
 ## Key decisions
 
