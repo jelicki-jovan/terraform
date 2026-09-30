@@ -63,8 +63,6 @@ evaluate the SCPs' conditions).
   exactly that plan, with an approval gate for prod. CI logs in with GitHub OIDC (a read-only plan role for
   PRs, an apply role only for `main`); people get read-only access plus a break-glass role; a nightly plan
   detects drift.
-- **Only a prod environment.** A dev environment would be a sibling folder; the shared parts would then
-  move into modules.
 - **Argo CD polls Git every 30 seconds** (no webhook: Argo CD isn't reachable from GitHub without a domain).
   *Production:* GitHub webhook for instant syncs.
 
@@ -94,6 +92,8 @@ evaluate the SCPs' conditions).
   errors (as multi-line text). Monitoring covers infrastructure (nodes, pods, ALB, RDS) and API requests
   via the nginx access logs. *Next step:* structured JSON request logs with a request ID shared with nginx,
   and Prometheus metrics per route (rate, errors, latency).
+- **Dev has no monitoring or alerting** (cost). *Production:* dev/staging get monitoring too (e.g. a lighter
+  stack, or one central monitoring for all clusters), so problems are found before prod.
 - **No tracing.** *Next step:* OpenTelemetry.
 - **Dashboards come from the chart only**; no app-specific dashboards kept in Git yet.
 - **Metrics from Karpenter, Argo CD, External Secrets and CoreDNS aren't scraped yet** (their charts can
