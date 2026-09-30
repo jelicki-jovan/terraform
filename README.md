@@ -150,16 +150,46 @@ role ARNs referenced in `k8s-envs` and in the app repo's workflow, and the RDS e
 - **Self-hosted monitoring** (Prometheus, Grafana, Loki) instead of the managed services: Amazon Managed
   Grafana needs IAM Identity Center, which this account doesn't have. CloudWatch still covers the AWS side
   and alerts that must work even if the cluster is down.
+- **Frontend in the cluster (nginx), not S3 + CloudFront:** the task is about running the app on Kubernetes,
+  so both parts run there with one delivery path (images + GitOps) instead of splitting the frontend off.
+  The usual alternative for a static React app would be S3 + CloudFront with `/api/*` routed to the backend.
 - **Explicit folders per environment**: dev is a copy of prod with its differences written directly in the
   code (no shared variables layer), so each environment can be read on its own. Trade-off: a change to a
   shared part is made in both folders; the standardized building blocks are modules.
 - **Built within the account's guardrails**: one region, small instance types only, no AWS Backup →
   backups with RDS automated backups + Data Lifecycle Manager instead.
 
+## HTTPS and the app's URL
+
+The app is served over **plain HTTP** on the ALB's AWS hostname, and the URL is **deliberately not in this
+public repository**.
+
+**Why no HTTPS:** a trusted certificate needs a domain I control. AWS (ACM) can't issue one for the ALB's
+`*.elb.amazonaws.com` name, and a self-signed certificate would only produce browser warnings. Registering a
+domain inside the provided AWS account would mean billing that account and putting personal registrant
+details into it, so I didn't.
+
+**How it would be done:**
+
+- **With a domain (production way):** Route 53 hosted zone + ACM certificate (DNS validation); the Ingress
+  gets the certificate, an HTTPS listener and an HTTP → HTTPS redirect. The same for dev with its own
+  subdomain.
+- **Without a domain:** CloudFront in front of the ALB gives a valid `https://…cloudfront.net` address with
+  AWS's certificate: static files cached according to nginx's `Cache-Control`, `/api/*` never cached with
+  the JWT forwarded. Limits: CloudFront → ALB stays HTTP, and the ALB must accept traffic only from
+  CloudFront (AWS's CloudFront prefix list) so nobody bypasses HTTPS.
+
+**Why the URL isn't here:** the environments run in an account provided for this task, and a public URL in a
+public repository invites scanners and random traffic (and costs). It also changes whenever the ALB is
+recreated.
+
+- The app's address is the ALB's DNS name: `kubectl -n prod get ingress` (column `ADDRESS`), or EC2 → Load
+  Balancers → `hw-alb-prod` (dev: `hw-alb-dev`).
+
 ## Known gaps
 
 - Terraform is applied from a laptop; production would run plan/apply from a pipeline with approvals.
-- No domain: HTTP only, no HTTPS/ACM, Argo CD and Grafana only via port-forward.
+- No domain: HTTP only (see [HTTPS and the app's URL](#https-and-the-apps-url)); Argo CD and Grafana only via port-forward.
 - EKS API endpoint is public (IAM-authenticated); production: private endpoint + VPN.
 - No network policies between pods yet (enforcement is enabled, no policies written).
 - Backend has no request logging or application metrics (infrastructure-level monitoring only).
