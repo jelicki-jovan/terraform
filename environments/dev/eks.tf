@@ -50,6 +50,7 @@ module "eks" {
 
   addons = {
     vpc-cni = {
+      addon_version            = "v1.23.1-eksbuild.1"
       before_compute           = true
       service_account_role_arn = module.vpc_cni_irsa.arn
       configuration_values = jsonencode({
@@ -61,11 +62,15 @@ module "eks" {
         }
       })
     }
-    kube-proxy = {}
+    kube-proxy = {
+      addon_version = "v1.36.0-eksbuild.25"
+    }
     eks-pod-identity-agent = {
+      addon_version  = "v1.4.0-eksbuild.2"
       before_compute = true
     }
     coredns = {
+      addon_version = "v1.14.6-eksbuild.4"
       configuration_values = jsonencode({
         replicaCount = 2
         nodeSelector = {
@@ -88,6 +93,7 @@ module "eks" {
       })
     }
     aws-ebs-csi-driver = {
+      addon_version            = "v1.66.0-eksbuild.1"
       service_account_role_arn = module.ebs_csi_irsa.arn
       configuration_values = jsonencode({
         controller = {
@@ -101,6 +107,7 @@ module "eks" {
       })
     }
     metrics-server = {
+      addon_version = "v0.9.0-eksbuild.11"
       configuration_values = jsonencode({
         nodeSelector = {
           "workload-type" = "system"
