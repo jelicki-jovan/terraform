@@ -6,7 +6,7 @@ Account-level resources shared by all environments. Applied first, rarely change
 | File | What | Why here |
 |---|---|---|
 | `s3.tf` | Terraform state bucket `terraform-backend-home-work` | Every stack (this one included) keeps its state there |
-| `ecr.tf` | ECR repositories `hw-backend-prod`, `hw-frontend-prod` | Images are built once by CI and pulled by the cluster |
+| `ecr.tf` | ECR repositories `hw-{backend,frontend}-dev` and `-prod` | Images are built once by CI into dev and promoted (copied) to prod |
 | `github-oidc.tf` | GitHub OIDC provider + role `hw-github-actions-ecr` | CI pushes images without any stored AWS keys |
 | `spot.tf` | EC2 Spot service-linked role | Needed once per account before any spot instance can start |
 
@@ -24,14 +24,16 @@ Account-level resources shared by all environments. Applied first, rarely change
 
 ## ECR
 
-- One set of repositories **per environment** (`hw-<app>-prod`), created with `for_each` from the own
-  [ECR module](../modules/README.md).
+- One set of repositories **per environment** (`hw-<app>-dev`, `hw-<app>-prod`), created with `for_each`
+  from the own [ECR module](../modules/README.md).
 - **Immutable tags** (a tag like `c287398` always means the same image), **scan on push** (Amazon Inspector
   findings in the console, on top of the Trivy gate in CI).
 - Lifecycle: untagged images removed after 1 day, keep the last 30 commit tags and the last 5 `v*` releases.
 - `force_delete = true`: `terraform destroy` works with images inside (a demo setting; production: `false`).
-- Trade-off of per-environment repositories: promoting from dev to prod means copying the tested image
-  (by digest) instead of deploying the same tag; in return prod repositories can be locked down to prod CI.
+- CI builds each image **once** into the dev repository; after the performance test on dev it is **copied**
+  to the prod repository (same digest, verified), never rebuilt. Trade-off of per-environment repositories:
+  promotion is a copy instead of just deploying the same tag; in return prod only contains images that
+  passed dev and can be locked down separately.
 
 ## GitHub OIDC
 
@@ -40,8 +42,9 @@ Account-level resources shared by all environments. Applied first, rarely change
   repository IDs** (`repo:jelicki-jovan@333439828/Incode-conduit-realworld-example-app@1385920809:ref:refs/heads/main`):
   pull requests, forks and other branches can't assume it, and a deleted repository re-created under the
   same name by someone else wouldn't match either.
-- Permissions: push/pull on the two prod repositories only (+ `ecr:GetAuthorizationToken`, which has no
-  resource-level permissions). The role ARN is not a secret: the trust policy protects it.
+- Permissions: push/pull on the four app repositories only (dev: builds; dev → prod: the promotion copy),
+  plus `ecr:GetAuthorizationToken`, which has no resource-level permissions. The role ARN is not a secret:
+  the trust policy protects it.
 
 ## Spot service-linked role
 
@@ -52,7 +55,7 @@ Karpenter's controller correctly can't, so the first spot launch failed; the rol
 
 | Output | Used for |
 |---|---|
-| `ecr_prod_urls` | Image names in `k8s-envs` |
+| `ecr_prod_urls`, `ecr_dev_urls` | Image names in `k8s-envs` (prod / dev overlays) |
 | `github_actions_ecr_role_arn` | `AWS_ROLE_ARN` in the app repo's workflow (`app-ci.yml`) |
 
 ## Apply

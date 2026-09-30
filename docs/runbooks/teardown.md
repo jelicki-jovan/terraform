@@ -9,7 +9,12 @@ cluster**, not by Terraform, and would be left behind (and keep costing money) o
 | Karpenter (from the NodePools) | EC2 app nodes, their instance profiles | deleting the NodePools / EC2NodeClass while Karpenter still runs |
 | EBS CSI driver (from PersistentVolumeClaims) | EBS volumes (Prometheus, Loki) | deleting the PVCs while the driver still runs |
 
-So: first remove those through Kubernetes, **then** destroy with Terraform. Order: prod → management.
+So: first remove those through Kubernetes, **then** destroy with Terraform. Order: prod and dev →
+management last.
+
+**Dev** is torn down the same way as prod: steps 1-3 against the dev cluster (`hw-eks-dev`) and
+`environments/dev` (its database has no deletion protection and takes no final snapshot, so step 3's
+protection change and step 4's backups don't apply).
 
 ## Before you start
 
